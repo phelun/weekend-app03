@@ -80,7 +80,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
           APP_NAME: weekend-app03
           IMAGE_SHA: ${{ github.sha }}
-          MANIFEST: applications/app03/deployment.yaml
+          MANIFEST: environments/dev/applications/app03/deployment-patch.yaml
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
         run: |
           set -euo pipefail
