@@ -1,5 +1,7 @@
 FROM python:3.13-alpine
 
+RUN apk upgrade --no-cache
+
 WORKDIR /app
 COPY --chown=10001:10001 src/app.py /app/app.py
 
