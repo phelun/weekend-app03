@@ -66,3 +66,41 @@ jobs:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+      - name: Check out GitOps repository
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          repository: phelun/weekend-platform-gitops
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+      - name: Open GitOps promotion pull request
+        if: github.event_name == 'push'
+        working-directory: gitops
+        env:
+          GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+          APP_NAME: weekend-app03
+          IMAGE_SHA: ${{ github.sha }}
+          MANIFEST: applications/app03/deployment.yaml
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+        run: |
+          set -euo pipefail
+          branch="promote/${APP_NAME}-${IMAGE_SHA:0:12}"
+
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "Promotion branch $branch already exists; nothing to create."
+            exit 0
+          fi
+
+          python3 ../scripts/promote.py "$MANIFEST" "ghcr.io/phelun/$APP_NAME" "$IMAGE_SHA"
+          git switch -c "$branch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$MANIFEST"
+          git commit -m "chore: promote $APP_NAME to $IMAGE_SHA"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --repo phelun/weekend-platform-gitops \
+            --base main \
+            --head "$branch" \
+            --title "chore: promote $APP_NAME to ${IMAGE_SHA:0:12}" \
+            --body "Promotes $APP_NAME after its tests, security scan, image publication, and provenance attestation passed. Source commit: $SOURCE_URL"
